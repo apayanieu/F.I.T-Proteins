@@ -3,16 +3,17 @@ Process BELKA-style Parquet into sparse features for logistic regression (ridge/
 
 Repository layout note:
 - This project uses a src/ layout with the package at: src/fit_proteins
-- This script lives at: src/fit_proteins/data_processed.py
+- THIS script lives at: scripts/data_processed.py
 
 Usage (from project root):
-  # If the package is installed (e.g., `pip install -e .`) or PYTHONPATH=src:
-  python -m fit_proteins.data_processed --train
-  python -m fit_proteins.data_processed --test
-  python -m fit_proteins.data_processed --train --test
+  # Direct file execution (no install needed):
+  python scripts/data_processed.py --train
+  python scripts/data_processed.py --test
+  python scripts/data_processed.py --train --test
 
-Alternatively (direct file execution from project root):
-  python src/fit_proteins/data_processed.py --train
+  # Override paths explicitly (optional):
+  python scripts/data_processed.py --train_path data/raw/train_brd4_50k_stratified.parquet \
+                                   --test_path  data/raw/test_brd4_50k.parquet
 """
 
 from __future__ import annotations
@@ -25,15 +26,34 @@ from sklearn.feature_extraction.text import HashingVectorizer
 from sklearn.preprocessing import OneHotEncoder
 import joblib
 
+# ---------- robust project root detection ----------
+def _find_project_root(start: Path) -> Path:
+    """
+    Walk upwards from `start` to find the repo root
+    (identified by `pyproject.toml` or `.git`). Falls back to parent.
+    """
+    cur = start
+    for p in [cur, *cur.parents]:
+        if (p / "pyproject.toml").exists() or (p / ".git").exists():
+            return p
+    # Fallback: assume <repo>/<scripts>/this_file.py
+    return start.parent.parent
 
-# ---------- paths resolved relative to the repository root ----------
-# This makes defaults work no matter where you run the script from.
-PROJECT_ROOT = Path(__file__).resolve().parents[2]  # .../F.I.T-Proteins
+PROJECT_ROOT = _find_project_root(Path(__file__).resolve())
+# --------------------------------------------------
+
+# ---------- defaults aligned with your tree ----------
+# data/
+#   ├─ raw/
+#   │   ├─ train_brd4_50k_stratified.parquet
+#   │   └─ test_brd4_50k.parquet
+#   └─ prep_logreg_ridge/  (outputs)
 DEFAULT_DATA_DIR = PROJECT_ROOT / "data"
-DEFAULT_TRAIN = DEFAULT_DATA_DIR / "train_brd4_50k_stratified.parquet"
-DEFAULT_TEST  = DEFAULT_DATA_DIR / "test_brd4_50k.parquet"
-OUT_DIR       = DEFAULT_DATA_DIR / "prep_logreg_ridge"
-# -------------------------------------------------------------------
+DEFAULT_TRAIN = DEFAULT_DATA_DIR / "raw" / "train_brd4_50k_stratified.parquet"
+DEFAULT_TEST  = DEFAULT_DATA_DIR / "raw" / "test_brd4_50k.parquet"
+OUT_DIR       = DEFAULT_DATA_DIR / "processed"
+# ----------------------------------------------------
+
 
 
 HASH_N_FEATURES = 2**18      # adjust to 2**19 or 2**20 if you have RAM/time
